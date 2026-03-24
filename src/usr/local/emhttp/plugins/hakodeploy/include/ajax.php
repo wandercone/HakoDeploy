@@ -282,7 +282,7 @@ $cfg = [
         }
         return 'bridge';
     })(),
-    'SHELL'     => in_array(postStr('SHELL', 'bash'), ['bash', 'sh'], true)
+    'SHELL' => in_array(postStr('SHELL', 'bash'), ['bash', 'sh'], true)
                       ? postStr('SHELL', 'bash') : 'bash',
     'TAILSCALE' => postStr('TAILSCALE') === 'true' ? 'true' : 'false',
     'SECRET'    => preg_replace('/[^A-Za-z0-9+\/=_-]/', '', postStr('SECRET')) ?? '',
