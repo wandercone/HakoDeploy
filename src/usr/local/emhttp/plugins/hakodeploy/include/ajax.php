@@ -9,6 +9,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
+$varIni    = parse_ini_file('/var/local/emhttp/var.ini') ?: [];
+$csrfToken = (string)($varIni['csrf_token'] ?? '');
+
+if ($csrfToken === '' || ! hash_equals($csrfToken, postStr('csrf_token'))) {
+    http_response_code(403);
+    exit;
+}
+
 const PLUGIN_NAME   = 'hakodeploy';
 const CFG_DIR       = '/boot/config/plugins/hakodeploy';
 const CFG_FILE      = CFG_DIR . '/hakodeploy.cfg';
