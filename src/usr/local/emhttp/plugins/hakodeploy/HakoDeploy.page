@@ -1,0 +1,368 @@
+Menu="DiskUtilities"
+Type="xmenu"
+Title="HakoDeploy"
+Icon="fa-server"
+Markdown="false"
+---
+<?php
+require_once "/usr/local/emhttp/plugins/dynamix/include/Helpers.php";
+
+$pluginName = "hakodeploy";
+$cfg        = parse_plugin_cfg($pluginName);
+
+$varIni    = parse_ini_file('/var/local/emhttp/var.ini') ?: [];
+$csrfToken = (string)($varIni['csrf_token'] ?? '');
+
+$blockDevices = [];
+$lsblkLines   = [];
+exec('lsblk -d -n -o NAME,SIZE,MODEL,ROTA --pairs 2>/dev/null', $lsblkLines);
+foreach ($lsblkLines as $line) {
+    if ( ! preg_match('/NAME="(sd[a-z]+|nvme\d+n\d+)"/', $line)) {
+        continue;
+    }
+    preg_match('/NAME="([^"]*)"/', $line, $nm);
+    preg_match('/SIZE="([^"]*)"/', $line, $sz);
+    preg_match('/MODEL="([^"]*)"/', $line, $md);
+    preg_match('/ROTA="([^"]*)"/', $line, $ro);
+
+    $isRotational = ($ro[1] ?? '1') === '1';
+    $name         = $nm[1] ?? '';
+    if ($name === '') {
+        continue;
+    }
+
+    $blockDevices[] = [
+        'path'  => '/dev/' . $name,
+        'size'  => $sz[1] ?? '',
+        'model' => trim($md[1] ?? 'Unknown'),
+        'type'  => str_starts_with($name, 'nvme') ? 'NVMe'
+                 : ($isRotational ? 'HDD' : 'SSD'),
+    ];
+}
+
+$serialDevices = glob('/dev/ttyACM*') ?: [];
+
+$selectedBlock  = array_filter(explode(',', $cfg['SELECTED_DEVICES'] ?? ''));
+$selectedSerial = array_filter(explode(',', $cfg['SELECTED_SERIAL'] ?? ''));
+
+exec('docker inspect --format "{{.State.Status}}" HakoFoundry 2>/dev/null', $statusOut, $rc);
+$containerStatus   = ($rc === 0 && ! empty($statusOut[0])) ? $statusOut[0] : 'not installed';
+$templateInstalled = file_exists('/boot/config/plugins/dockerMan/templates-user/my-HakoFoundry.xml');
+
+$dockerNetworks = [];
+$netLines       = [];
+exec("docker network ls --format '{{.Name}}={{.Driver}}' 2>/dev/null", $netLines);
+foreach ($netLines as $line) {
+    [$name, $driver] = array_pad(explode('=', $line, 2), 2, '');
+    if ($name !== '') {
+        $dockerNetworks[$name] = $driver;
+    }
+}
+?>
+
+<script src="<?= autov('/webGui/javascript/jquery.filetree.js'); ?>"></script>
+<link type="text/css" rel="stylesheet" href="<?= autov('/webGui/styles/jquery.filetree.css'); ?>">
+<script>
+  $(function() { $('#hfAppdataPicker').fileTreeAttach(); });
+</script>
+
+<form id="hfForm">
+<input type="hidden" id="hfCsrfToken" value="<?= htmlspecialchars($csrfToken); ?>">
+
+<table class="unraid tablesorter"><thead><tr><td>Control Panel</td></tr></thead></table>
+<dl>
+  <dt>Template</dt>
+  <dd><?= $templateInstalled ? 'installed' : 'not installed'; ?></dd>
+</dl>
+<dl>
+  <dt>Container</dt>
+  <dd><span id="hfContainerStatus"><?= htmlspecialchars($containerStatus); ?></span><br><input type="button" id="deployBtn" value="Apply &amp; Deploy" onclick="deployContainer()" style="margin-top:4px;"></dd>
+</dl>
+<dl>
+  <dt>&nbsp;</dt>
+  <dd><pre id="hfOutput" style="display:none; margin:0;"></pre></dd>
+</dl>
+
+<table class="unraid tablesorter"><thead><tr><td>Container Configuration</td></tr></thead></table>
+<dl>
+  <dt>Appdata Path</dt>
+  <dd>
+    <input type="text" id="hfAppdataPicker" name="APPDATA_PATH"
+           autocomplete="off" spellcheck="false" style="width:320px;"
+           data-pickfolders="true" data-pickfilter="HIDE_FILES_FILTER"
+           data-pickroot="/mnt" pattern="^/mnt/.*"
+           value="<?= htmlspecialchars($cfg['APPDATA_PATH'] ?? '/mnt/user/appdata/hako-foundry'); ?>">
+  </dd>
+</dl>
+<dl>
+  <dt>Web UI Port</dt>
+  <dd>
+    <input type="number" name="WEB_PORT" min="1" max="65535" style="width:90px;"
+           value="<?= htmlspecialchars($cfg['WEB_PORT'] ?? '8080'); ?>">
+  </dd>
+</dl>
+<dl>
+  <dt>User ID (PUID)</dt>
+  <dd>
+    <input type="number" name="PUID" min="0" max="65534" style="width:90px;"
+           value="<?= htmlspecialchars($cfg['PUID'] ?? '99'); ?>">
+  </dd>
+</dl>
+<dl>
+  <dt>Group ID (PGID)</dt>
+  <dd>
+    <input type="number" name="PGID" min="0" max="65534" style="width:90px;"
+           value="<?= htmlspecialchars($cfg['PGID'] ?? '100'); ?>">
+  </dd>
+</dl>
+<dl>
+  <dt>Open Access</dt>
+  <dd>
+    <select name="OPEN_ACCESS">
+      <option value="false" <?= ($cfg['OPEN_ACCESS'] ?? 'false') === 'false' ? 'selected' : ''; ?>>Disabled (require login)</option>
+      <option value="true"  <?= ($cfg['OPEN_ACCESS'] ?? 'false') === 'true' ? 'selected' : ''; ?>>Enabled (no authentication)</option>
+    </select>
+  </dd>
+</dl>
+<dl>
+  <dt>Network Type</dt>
+  <dd>
+    <select name="NETWORK">
+      <?php
+        $savedNetwork = $cfg['NETWORK'] ?? 'bridge';
+$static               = ['bridge' => 'bridge', 'host' => 'host', 'none' => 'null'];
+foreach ($static as $val => $driver) {
+    $sel = $savedNetwork === $val ? 'selected' : '';
+    ?>
+        <option value="<?= $val; ?>" <?= $sel; ?>><?= ucfirst($val); ?></option>
+      <?php } ?>
+      <?php foreach ($dockerNetworks as $name => $driver) {
+          if (isset($static[$name])) {
+              continue;
+          }
+          $sel = $savedNetwork === $name ? 'selected' : '';
+          ?>
+        <option value="<?= htmlspecialchars($name); ?>" <?= $sel; ?>><?= htmlspecialchars($name); ?> (<?= htmlspecialchars($driver); ?>)</option>
+      <?php } ?>
+    </select>
+  </dd>
+</dl>
+<dl>
+  <dt>Console Shell</dt>
+  <dd>
+    <select name="SHELL">
+      <option value="bash" <?= ($cfg['SHELL'] ?? 'bash') === 'bash' ? 'selected' : ''; ?>>bash</option>
+      <option value="sh"   <?= ($cfg['SHELL'] ?? 'bash') === 'sh' ? 'selected' : ''; ?>>sh</option>
+    </select>
+  </dd>
+</dl>
+<dl>
+  <dt>Tailscale</dt>
+  <dd>
+    <select name="TAILSCALE">
+      <option value="false" <?= ($cfg['TAILSCALE'] ?? 'false') === 'false' ? 'selected' : ''; ?>>Disabled</option>
+      <option value="true"  <?= ($cfg['TAILSCALE'] ?? 'false') === 'true' ? 'selected' : ''; ?>>Enabled</option>
+    </select>
+  </dd>
+</dl>
+<dl>
+  <dt>Image Tag</dt>
+  <dd>
+    <input type="text" name="IMAGE_TAG" style="width:160px;"
+           placeholder="latest"
+           value="<?= htmlspecialchars($cfg['IMAGE_TAG'] ?? 'latest'); ?>">
+  </dd>
+</dl>
+<dl>
+  <dt>Secret Key</dt>
+  <dd>
+    <input type="password" name="SECRET" id="secretInput" style="width:260px;"
+           placeholder="Leave empty to auto-generate"
+           oninput="document.getElementById('generateBtn').style.display = this.value ? 'none' : ''"
+           value="<?= htmlspecialchars($cfg['SECRET'] ?? ''); ?>">
+    &nbsp;<input type="button" id="generateBtn" value="Generate" onclick="generateSecret()"
+           style="<?= ! empty($cfg['SECRET']) ? 'display:none' : ''; ?>">
+  </dd>
+</dl>
+
+<?php if (empty($blockDevices)) { ?>
+<table class="unraid tablesorter"><thead><tr><td>Storage Devices</td></tr></thead></table>
+<dl><dt>&nbsp;</dt><dd><em>No block devices detected.</em></dd></dl>
+<?php } else { ?>
+<table class="unraid tablesorter">
+  <thead>
+    <tr><td colspan="4">Storage Devices</td></tr>
+    <tr>
+      <td><input type="checkbox" id="selectAllDrives" title="Select all" onclick="toggleAll('block_devices[]', this.checked)"> Device</td>
+      <td>Type</td>
+      <td>Size</td>
+      <td>Model</td>
+    </tr>
+  </thead>
+  <tbody>
+    <?php foreach ($blockDevices as $dev) {
+        $checked = in_array($dev['path'], $selectedBlock, true);
+        ?>
+    <tr style="cursor:pointer" onclick="toggleRow(this)">
+      <td>
+        <input type="checkbox" name="block_devices[]"
+               value="<?= htmlspecialchars($dev['path']); ?>"
+               <?= $checked ? 'checked' : ''; ?>
+               onclick="event.stopPropagation(); syncSelectAll(this.name)">
+        <?= htmlspecialchars($dev['path']); ?>
+      </td>
+      <td><?= htmlspecialchars($dev['type']); ?></td>
+      <td><?= htmlspecialchars($dev['size']); ?></td>
+      <td><?= $dev['model'] !== 'Unknown' ? htmlspecialchars($dev['model']) : ''; ?></td>
+    </tr>
+    <?php } ?>
+  </tbody>
+</table>
+<?php } ?>
+
+<?php if ( ! empty($serialDevices)) { ?>
+<table class="unraid tablesorter">
+  <thead>
+    <tr><td colspan="2">Power Boards (ttyACM)</td></tr>
+    <tr>
+      <td>Device</td>
+      <td>Description</td>
+    </tr>
+  </thead>
+  <tbody>
+    <?php foreach ($serialDevices as $dev) {
+        $checked = in_array($dev, $selectedSerial, true);
+        ?>
+    <tr style="cursor:pointer" onclick="toggleRow(this)">
+      <td>
+        <input type="checkbox" name="serial_devices[]"
+               value="<?= htmlspecialchars($dev); ?>"
+               <?= $checked ? 'checked' : ''; ?>
+               onclick="event.stopPropagation()">
+        <?= htmlspecialchars($dev); ?>
+      </td>
+      <td>USB serial adapter</td>
+    </tr>
+    <?php } ?>
+  </tbody>
+</table>
+<?php } ?>
+
+
+</form>
+
+<script>
+function toggleRow(row) {
+  const cb = row.querySelector('input[type=checkbox]');
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  syncSelectAll(cb.name);
+}
+
+function toggleAll(name, checked) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach(cb => cb.checked = checked);
+}
+
+function syncSelectAll(name) {
+  if (name === 'block_devices[]') {
+    const all  = document.querySelectorAll('input[name="block_devices[]"]');
+    const master = document.getElementById('selectAllDrives');
+    if (master) master.checked = all.length > 0 && [...all].every(cb => cb.checked);
+  }
+}
+
+function generateSecret() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const arr   = new Uint8Array(48);
+  crypto.getRandomValues(arr);
+  document.getElementById('secretInput').value =
+    Array.from(arr, b => chars[b % chars.length]).join('');
+  document.getElementById('generateBtn').style.display = 'none';
+}
+
+function collectParams(action) {
+  const form    = document.getElementById('hfForm');
+  const blocks  = [...form.querySelectorAll('input[name="block_devices[]"]:checked')].map(e => e.value);
+  const serials = [...form.querySelectorAll('input[name="serial_devices[]"]:checked')].map(e => e.value);
+  return new URLSearchParams({
+    action,
+    csrf_token:       document.getElementById('hfCsrfToken').value,
+    APPDATA_PATH:     form.querySelector('[name=APPDATA_PATH]').value,
+    WEB_PORT:         form.querySelector('[name=WEB_PORT]').value,
+    PUID:             form.querySelector('[name=PUID]').value,
+    PGID:             form.querySelector('[name=PGID]').value,
+    OPEN_ACCESS:      form.querySelector('[name=OPEN_ACCESS]').value,
+    NETWORK:          form.querySelector('[name=NETWORK]').value,
+    SHELL:            form.querySelector('[name=SHELL]').value,
+    TAILSCALE:        form.querySelector('[name=TAILSCALE]').value,
+    IMAGE_TAG:        form.querySelector('[name=IMAGE_TAG]').value,
+    SECRET:           form.querySelector('[name=SECRET]').value,
+    SELECTED_DEVICES: blocks.join(','),
+    SELECTED_SERIAL:  serials.join(','),
+  });
+}
+
+function showOutput(text, isSuccess) {
+  const el = document.getElementById('hfOutput');
+  el.textContent = text;
+  el.style.display = 'block';
+  el.style.color = isSuccess ? '' : 'var(--red, #ef5350)';
+  el.scrollTop = 0;
+}
+
+async function deployContainer() {
+  if (!confirm('Apply settings and deploy the HakoFoundry container?')) return;
+  const btn = document.getElementById('deployBtn');
+  btn.disabled = true;
+
+  try {
+    showOutput('Saving configuration\u2026', true);
+    const applyResp = await fetch('/plugins/hakodeploy/include/ajax.php', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    collectParams('apply').toString(),
+    });
+    const applyData = await applyResp.json();
+    if (!applyData.success) {
+      showOutput(applyData.message, false);
+      btn.disabled = false;
+      return;
+    }
+
+    showOutput('Deploying container\u2026', true);
+    const deployResp = await fetch('/plugins/hakodeploy/include/ajax.php', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body:    new URLSearchParams({
+        action:     'deploy',
+        csrf_token: document.getElementById('hfCsrfToken').value,
+      }).toString(),
+    });
+    const deployData = await deployResp.json();
+    showOutput(deployData.message, deployData.success);
+
+    if (deployData.success) {
+      setTimeout(() => location.reload(), 2000);
+    }
+  } catch (e) {
+    showOutput('Error: ' + e.message, false);
+  }
+
+  btn.disabled = false;
+}
+
+function pollStatus() {
+  fetch('/plugins/hakodeploy/include/ajax.php', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body:    'action=status&csrf_token=' + encodeURIComponent(document.getElementById('hfCsrfToken').value),
+  })
+  .then(r => r.json())
+  .then(data => {
+    const el = document.getElementById('hfContainerStatus');
+    if (el) el.textContent = data.container_status;
+  })
+  .catch(() => {});
+}
+setInterval(pollStatus, 10000);
+</script>
