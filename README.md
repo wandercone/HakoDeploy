@@ -23,7 +23,7 @@ Search for **HakoDeploy** in the Apps tab and install from there.
 **Via Plugin URL**
 
 1. In the Unraid UI go to **Plugins > Install Plugin**
-2. Paste the `.plg` URL from the [latest release](https://github.com/wandercone/hakodeploy/releases/latest)
+2. Paste the `.plg` URL from the [latest release](https://raw.githubusercontent.com/wandercone/HakoDeploy/refs/heads/main/plugin/hakodeploy.plg)
 3. Click **Install**
 
 After installation the plugin is available at **Tools > HakoDeploy**.
