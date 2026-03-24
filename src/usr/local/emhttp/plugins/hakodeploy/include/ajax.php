@@ -94,7 +94,7 @@ function generateSecret(): string
  * @param array<string, string> $cfg
  * @param list<string> $blockDevices
  * @param list<string> $serialDevices
- * @param array<string, mixed> $varIni
+ * @param array<string, string> $varIni
  * @return list<string>
  */
 function buildDockerRunArgs(array $cfg, array $blockDevices, array $serialDevices, array $varIni): array
