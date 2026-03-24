@@ -94,16 +94,16 @@ function generateSecret(): string
  * @param array<string, string> $cfg
  * @param list<string> $blockDevices
  * @param list<string> $serialDevices
+ * @param array<string, mixed> $varIni
  * @return list<string>
  */
-function buildDockerRunArgs(array $cfg, array $blockDevices, array $serialDevices): array
+function buildDockerRunArgs(array $cfg, array $blockDevices, array $serialDevices, array $varIni): array
 {
     $port  = (int)$cfg['WEB_PORT'];
     $net   = $cfg['NETWORK'] ?? 'bridge';
     $shell = ($cfg['SHELL'] ?? 'bash') === 'sh' ? 'sh' : 'bash';
     $tag   = $cfg['IMAGE_TAG'] ?? 'latest';
 
-    $varIni   = parse_ini_file('/var/local/emhttp/var.ini') ?: [];
     $timezone = $varIni['timeZone'] ?? 'UTC';
     $hostname = $varIni['NAME']     ?? gethostname();
 
@@ -325,7 +325,7 @@ switch ($action) {
                 exec('docker rm ' . escapeshellarg(CONTAINER) . ' 2>&1');
             }
 
-            $args = buildDockerRunArgs($savedCfg, $deployBlock, $deploySerial);
+            $args = buildDockerRunArgs($savedCfg, $deployBlock, $deploySerial, $varIni);
             $cmd  = implode(' ', array_map('escapeshellarg', $args));
             exec($cmd . ' 2>&1', $runOut, $runRc);
             $output = implode("\n", $runOut);
