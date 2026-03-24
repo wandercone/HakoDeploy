@@ -4,7 +4,7 @@
 <PLUGIN 
   name="hakodeploy"
   author="wandercone"
-  version="2026.03.24"
+  version="2026.03.24.01"
   launch="Utilities/HakoDeploy"
   pluginURL="https://raw.githubusercontent.com/wandercone/HakoDeploy/main/plugin/hakodeploy.plg"
   support="https://forums.unraid.net/topic/197930-plugin-hakodeploy/"
@@ -16,6 +16,10 @@
 <CHANGES>
 <![CDATA[
 
+### 2026.03.24.01
+
+fix: validate csrf token server-side in ajax.php
+
 ### 2026.03.24
 
 Initial release of plugin
@@ -25,9 +29,9 @@ For older releases, see https://github.com/wandercone/HakoDeploy/releases
 ]]>
 </CHANGES>
 
-<FILE Name="/boot/config/plugins/hakodeploy/hakodeploy-2026.03.24-noarch-1.txz">
-<URL>https://github.com/wandercone/HakoDeploy/releases/download/2026.03.24/hakodeploy-2026.03.24-noarch-1.txz</URL>
-<SHA256>6f80779a255cab6273c65136cab1d31a1a19c4a4f20369521bef99c0a879ae38</SHA256>
+<FILE Name="/boot/config/plugins/hakodeploy/hakodeploy-2026.03.24.01-noarch-1.txz">
+<URL>https://github.com/wandercone/HakoDeploy/releases/download/2026.03.24.01/hakodeploy-2026.03.24.01-noarch-1.txz</URL>
+<SHA256>6549a8050f9bf2aa581d1e4c8b72c955df2decd32c7ea9c293a03bd55d60cf91</SHA256>
 </FILE>
 
 <!--
@@ -36,15 +40,15 @@ The 'install' script.
 <FILE Run="/bin/bash">
 <INLINE>
 <![CDATA[
-upgradepkg --install-new /boot/config/plugins/hakodeploy/hakodeploy-2026.03.24-noarch-1.txz
+upgradepkg --install-new /boot/config/plugins/hakodeploy/hakodeploy-2026.03.24.01-noarch-1.txz
 
 # cleanup old versions
-rm -f $(ls /boot/config/plugins/hakodeploy/hakodeploy-*.txz 2>/dev/null | grep -v '2026.03.24')
+rm -f $(ls /boot/config/plugins/hakodeploy/hakodeploy-*.txz 2>/dev/null | grep -v '2026.03.24.01')
 
 echo ""
 echo "----------------------------------------------------"
 echo " hakodeploy has been installed."
-echo " Version: 2026.03.24"
+echo " Version: 2026.03.24.01"
 echo "----------------------------------------------------"
 echo ""
 ]]>
