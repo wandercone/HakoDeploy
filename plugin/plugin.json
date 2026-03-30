@@ -4,5 +4,5 @@
   "author": "wandercone",
   "support": "https://forums.unraid.net/topic/197930-plugin-hakodeploy/",
   "launch": "Utilities/HakoDeploy",
-  "icon": "server"
+  "icon": "main/assets/images/icon.png"
 }
