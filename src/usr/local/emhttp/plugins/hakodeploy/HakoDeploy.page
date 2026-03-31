@@ -310,38 +310,40 @@ function showOutput(text, isSuccess) {
   el.scrollTop = 0;
 }
 
+function getCsrfToken() {
+  try { if (parent.csrf_token) return parent.csrf_token; } catch(e) {}
+  return document.getElementById('hfCsrfToken').value;
+}
+
+async function postJson(params) {
+  const resp = await fetch('/plugins/hakodeploy/include/ajax.php', {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/x-www-form-urlencoded',
+      'X-CSRF-TOKEN':  getCsrfToken(),
+    },
+    body:    params.toString(),
+  });
+  if (resp.status === 403) {
+    throw new Error('Session expired \u2014 please refresh the page and try again.');
+  }
+  if (!resp.ok) {
+    throw new Error('Server returned ' + resp.status);
+  }
+  return resp.json();
+}
+
 async function deployContainer() {
   if (!confirm('Apply settings and deploy the HakoFoundry container?')) return;
   const btn = document.getElementById('deployBtn');
   btn.disabled = true;
 
   try {
-    showOutput('Saving configuration\u2026', true);
-    const applyResp = await fetch('/plugins/hakodeploy/include/ajax.php', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:    collectParams('apply').toString(),
-    });
-    const applyData = await applyResp.json();
-    if (!applyData.success) {
-      showOutput(applyData.message, false);
-      btn.disabled = false;
-      return;
-    }
+    showOutput('Applying configuration and deploying\u2026', true);
+    const data = await postJson(collectParams('apply_and_deploy'));
+    showOutput(data.message, data.success);
 
-    showOutput('Deploying container\u2026', true);
-    const deployResp = await fetch('/plugins/hakodeploy/include/ajax.php', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body:    new URLSearchParams({
-        action:     'deploy',
-        csrf_token: document.getElementById('hfCsrfToken').value,
-      }).toString(),
-    });
-    const deployData = await deployResp.json();
-    showOutput(deployData.message, deployData.success);
-
-    if (deployData.success) {
+    if (data.success) {
       setTimeout(() => location.reload(), 2000);
     }
   } catch (e) {

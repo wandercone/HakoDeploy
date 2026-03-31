@@ -9,13 +9,23 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$varIni    = parse_ini_file('/var/local/emhttp/var.ini') ?: [];
-$csrfToken = (string)($varIni['csrf_token'] ?? '');
+$csrfPost   = $_POST['csrf_token']           ?? '';
+$csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
+$csrfCookie = $_COOKIE['csrf_token']        ?? '';
 
-if ($csrfToken === '' || ! hash_equals($csrfToken, postStr('csrf_token'))) {
+$csrfToken = $csrfHeader !== '' ? $csrfHeader : $csrfPost;
+
+if ($csrfToken === '') {
     http_response_code(403);
     exit;
 }
+
+if ($csrfCookie !== '' && $csrfToken !== $csrfCookie) {
+    http_response_code(403);
+    exit;
+}
+
+$varIni = parse_ini_file('/var/local/emhttp/var.ini') ?: [];
 
 const PLUGIN_NAME   = 'hakodeploy';
 const CFG_DIR       = '/boot/config/plugins/hakodeploy';
@@ -337,6 +347,45 @@ switch ($action) {
             jsonResponse(true, "Container deployed successfully.\n" . $output);
         } catch (Throwable $e) {
             jsonResponse(false, "Deploy error: " . $e->getMessage());
+        }
+
+    case 'apply_and_deploy':
+        try {
+            if ( ! is_dir(TEMPLATE_DIR)) {
+                jsonResponse(
+                    false,
+                    "Template directory not found: " . TEMPLATE_DIR . "\n" .
+                    "Is the Docker / Community Applications plugin installed?"
+                );
+            }
+
+            saveConfig($cfgForFile);
+
+            if (file_exists(TEMPLATE_FILE)) {
+                rename(TEMPLATE_FILE, TEMPLATE_FILE . '.bak.' . date('Ymd_His'));
+            }
+
+            file_put_contents(TEMPLATE_FILE, buildXml($cfg, $blockDevices, $serialDevices));
+
+            exec('docker inspect ' . escapeshellarg(CONTAINER) . ' 2>/dev/null', $inspOut, $inspRc);
+            if ($inspRc === 0) {
+                exec('docker stop ' . escapeshellarg(CONTAINER) . ' 2>&1');
+                exec('docker rm ' . escapeshellarg(CONTAINER) . ' 2>&1');
+            }
+
+            $args = buildDockerRunArgs($cfg, $blockDevices, $serialDevices, $varIni);
+            $cmd  = implode(' ', array_map('escapeshellarg', $args));
+            exec($cmd . ' 2>&1', $runOut, $runRc);
+            $output = implode("\n", $runOut);
+
+            if ($runRc !== 0) {
+                jsonResponse(false, "Container start failed:\n" . $output);
+            }
+
+            $count = count($blockDevices) + count($serialDevices);
+            jsonResponse(true, "Container deployed successfully. Devices configured: {$count}\n" . $output);
+        } catch (Throwable $e) {
+            jsonResponse(false, "Error: " . $e->getMessage());
         }
 
     case 'apply':
