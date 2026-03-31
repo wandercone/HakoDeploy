@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$csrfPost   = $_POST['csrf_token']           ?? '';
+$csrfPost   = $_POST['csrf_token']          ?? '';
 $csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
 $csrfCookie = $_COOKIE['csrf_token']        ?? '';
 

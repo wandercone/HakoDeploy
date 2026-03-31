@@ -325,7 +325,7 @@ async function postJson(params) {
     body:    params.toString(),
   });
   if (resp.status === 403) {
-    throw new Error('Session expired \u2014 please refresh the page and try again.');
+    throw new Error('Session expired - please refresh the page and try again.');
   }
   if (!resp.ok) {
     throw new Error('Server returned ' + resp.status);
