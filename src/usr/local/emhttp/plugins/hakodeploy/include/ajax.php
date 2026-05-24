@@ -9,22 +9,6 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$csrfPost   = $_POST['csrf_token']          ?? '';
-$csrfHeader = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
-$csrfCookie = $_COOKIE['csrf_token']        ?? '';
-
-$csrfToken = $csrfHeader !== '' ? $csrfHeader : $csrfPost;
-
-if ($csrfToken === '') {
-    http_response_code(403);
-    exit;
-}
-
-if ($csrfCookie !== '' && $csrfToken !== $csrfCookie) {
-    http_response_code(403);
-    exit;
-}
-
 $varIni = parse_ini_file('/var/local/emhttp/var.ini') ?: [];
 
 const PLUGIN_NAME   = 'hakodeploy';
