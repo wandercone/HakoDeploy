@@ -4,7 +4,7 @@
 <PLUGIN 
   name="hakodeploy"
   author="wandercone"
-  version="2026.03.31"
+  version="2026.05.23"
   launch="Utilities/HakoDeploy"
   pluginURL="https://raw.githubusercontent.com/wandercone/HakoDeploy/main/plugin/hakodeploy.plg"
   support="https://forums.unraid.net/topic/197930-plugin-hakodeploy/"
@@ -16,6 +16,10 @@
 <CHANGES>
 <![CDATA[
 
+### 2026.05.23
+
+fix: removed csrf because its causing too much problem
+
 ### 2026.03.31
 
 - chore: address php-cs-fixer comments
@@ -25,19 +29,14 @@
 
 chore: move icon.png into images folder of assets
 
-### 2026.03.24.02
-
-- fix(ajax): change $varIni from mixed to string
-- chore: parse varIni only once & add fix display on plugin page
-
 
 For older releases, see https://github.com/wandercone/HakoDeploy/releases
 ]]>
 </CHANGES>
 
-<FILE Name="/boot/config/plugins/hakodeploy/hakodeploy-2026.03.31-noarch-1.txz">
-<URL>https://github.com/wandercone/HakoDeploy/releases/download/2026.03.31/hakodeploy-2026.03.31-noarch-1.txz</URL>
-<SHA256>07d784f4dd9ab340bd6d5b07f7395afe0cca7a7544fd1f6129e6b39b42775bde</SHA256>
+<FILE Name="/boot/config/plugins/hakodeploy/hakodeploy-2026.05.23-noarch-1.txz">
+<URL>https://github.com/wandercone/HakoDeploy/releases/download/2026.05.23/hakodeploy-2026.05.23-noarch-1.txz</URL>
+<SHA256>37fc00820b883a714fe6805481075d351d90ab13f6cffbc7dcab0ff1e8c6cf79</SHA256>
 </FILE>
 
 <!--
@@ -46,15 +45,15 @@ The 'install' script.
 <FILE Run="/bin/bash">
 <INLINE>
 <![CDATA[
-upgradepkg --install-new /boot/config/plugins/hakodeploy/hakodeploy-2026.03.31-noarch-1.txz
+upgradepkg --install-new /boot/config/plugins/hakodeploy/hakodeploy-2026.05.23-noarch-1.txz
 
 # cleanup old versions
-rm -f $(ls /boot/config/plugins/hakodeploy/hakodeploy-*.txz 2>/dev/null | grep -v '2026.03.31')
+rm -f $(ls /boot/config/plugins/hakodeploy/hakodeploy-*.txz 2>/dev/null | grep -v '2026.05.23')
 
 echo ""
 echo "----------------------------------------------------"
 echo " hakodeploy has been installed."
-echo " Version: 2026.03.31"
+echo " Version: 2026.05.23"
 echo "----------------------------------------------------"
 echo ""
 ]]>
