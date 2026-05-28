@@ -4,7 +4,7 @@
 <PLUGIN 
   name="hakodeploy"
   author="wandercone"
-  version="2026.05.23"
+  version="2026.05.28"
   launch="Utilities/HakoDeploy"
   pluginURL="https://raw.githubusercontent.com/wandercone/HakoDeploy/main/plugin/hakodeploy.plg"
   support="https://forums.unraid.net/topic/197930-plugin-hakodeploy/"
@@ -16,6 +16,10 @@
 <CHANGES>
 <![CDATA[
 
+### 2026.05.28
+
+fix: turns out unraid emhttp requires csrf when working with forms
+
 ### 2026.05.23
 
 fix: removed csrf because its causing too much problem
@@ -25,18 +29,14 @@ fix: removed csrf because its causing too much problem
 - chore: address php-cs-fixer comments
 - fix: rework csrf similar to other devs
 
-### 2026.03.30
-
-chore: move icon.png into images folder of assets
-
 
 For older releases, see https://github.com/wandercone/HakoDeploy/releases
 ]]>
 </CHANGES>
 
-<FILE Name="/boot/config/plugins/hakodeploy/hakodeploy-2026.05.23-noarch-1.txz">
-<URL>https://github.com/wandercone/HakoDeploy/releases/download/2026.05.23/hakodeploy-2026.05.23-noarch-1.txz</URL>
-<SHA256>37fc00820b883a714fe6805481075d351d90ab13f6cffbc7dcab0ff1e8c6cf79</SHA256>
+<FILE Name="/boot/config/plugins/hakodeploy/hakodeploy-2026.05.28-noarch-1.txz">
+<URL>https://github.com/wandercone/HakoDeploy/releases/download/2026.05.28/hakodeploy-2026.05.28-noarch-1.txz</URL>
+<SHA256>07d2b8db3566e674a04e343b09d46d916fdf3e14bcaa5d4d36e90ff4edc5cdf9</SHA256>
 </FILE>
 
 <!--
@@ -45,15 +45,15 @@ The 'install' script.
 <FILE Run="/bin/bash">
 <INLINE>
 <![CDATA[
-upgradepkg --install-new /boot/config/plugins/hakodeploy/hakodeploy-2026.05.23-noarch-1.txz
+upgradepkg --install-new /boot/config/plugins/hakodeploy/hakodeploy-2026.05.28-noarch-1.txz
 
 # cleanup old versions
-rm -f $(ls /boot/config/plugins/hakodeploy/hakodeploy-*.txz 2>/dev/null | grep -v '2026.05.23')
+rm -f $(ls /boot/config/plugins/hakodeploy/hakodeploy-*.txz 2>/dev/null | grep -v '2026.05.28')
 
 echo ""
 echo "----------------------------------------------------"
 echo " hakodeploy has been installed."
-echo " Version: 2026.05.23"
+echo " Version: 2026.05.28"
 echo "----------------------------------------------------"
 echo ""
 ]]>
