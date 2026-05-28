@@ -412,7 +412,7 @@ switch ($action) {
             'container_id'       => $id,
             'template_installed' => file_exists(TEMPLATE_FILE),
         ]);
-        break;
+        exit;
     default:
         jsonResponse(false, "Unknown action: " . htmlspecialchars($action));
 }

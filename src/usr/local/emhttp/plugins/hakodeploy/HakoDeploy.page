@@ -63,6 +63,7 @@ foreach ($netLines as $line) {
 <link type="text/css" rel="stylesheet" href="<?= autov('/webGui/styles/jquery.filetree.css'); ?>">
 <script>
   $(function() { $('#hfAppdataPicker').fileTreeAttach(); });
+  const CSRF_TOKEN = <?= json_encode($varIni['csrf_token'] ?? ''); ?>;
 </script>
 
 <form id="hfForm">
@@ -284,6 +285,7 @@ function collectParams(action) {
   const serials = [...form.querySelectorAll('input[name="serial_devices[]"]:checked')].map(e => e.value);
   return new URLSearchParams({
     action,
+    csrf_token:       CSRF_TOKEN,
     APPDATA_PATH:     form.querySelector('[name=APPDATA_PATH]').value,
     WEB_PORT:         form.querySelector('[name=WEB_PORT]').value,
     PUID:             form.querySelector('[name=PUID]').value,
@@ -319,7 +321,15 @@ async function postJson(params) {
   if (!resp.ok) {
     throw new Error('Server returned ' + resp.status);
   }
-  return resp.json();
+  const text = await resp.text();
+  if (!text) {
+    throw new Error('Empty response from server.');
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error('Invalid response from server.');
+  }
 }
 
 async function deployContainer() {
@@ -343,13 +353,16 @@ async function deployContainer() {
 }
 
 function pollStatus() {
+  const params = new URLSearchParams({ action: 'status', csrf_token: CSRF_TOKEN });
   fetch('/plugins/hakodeploy/include/ajax.php', {
     method:  'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body:    'action=status',
+    body:    params.toString(),
   })
-  .then(r => r.json())
-  .then(data => {
+  .then(r => r.text())
+  .then(text => {
+    if (!text) return;
+    const data = JSON.parse(text);
     const el = document.getElementById('hfContainerStatus');
     if (el) el.textContent = data.container_status;
   })
